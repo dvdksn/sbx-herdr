@@ -24,13 +24,15 @@ sbx exec -it my-sandbox bash -il
 sbx env run
 ```
 
-Agents appear as `sbx-claude`, `sbx-codex`, and so on. Shells appear as
-`sbx-shell`; environment runs appear as `sbx-env`. Labels may take a few seconds
-to update.
+Agents appear as `sbx-claude`, `sbx-codex`, and so on, including kit agents
+(a `sbx-kit-devin` sandbox appears as `sbx-devin`). Shells appear as
+`sbx-shell`. Environment runs appear as their sandbox's agent when the sandbox
+is named by `--name` or a literal `name:`, otherwise as `sbx-env`. Labels may
+take a few seconds to update.
 
 The plugin supports local `sbx run`, `sbx exec`, and `sbx env run` commands.
-It doesn't yet identify agents launched from inside a sandbox shell, or the
-agent behind an environment run. Cloud, SSH, and `sbx env exec` aren't supported.
+It doesn't yet identify agents launched from inside a sandbox shell.
+Cloud, SSH, and `sbx env exec` aren't supported.
 For kit-based launches, use `--name` to help identify the sandbox.
 
 ## Contributing
