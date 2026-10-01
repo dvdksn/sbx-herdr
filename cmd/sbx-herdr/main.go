@@ -164,7 +164,7 @@ func observe(ctx context.Context) error {
 				delete(observations, pane.ID)
 			}
 			if err == nil && observation.matched {
-				if observation.command.Mode == "env-run" {
+				if observation.command.Mode == "env-run" && observation.name == "" {
 					warn(watcher.report(ctx, pane.ID, observation.command, sandbox.Info{}, "env"))
 				} else {
 					commands[pane.ID] = observation
@@ -199,12 +199,16 @@ func observe(ctx context.Context) error {
 			warn(err)
 			for pane, observation := range commands {
 				if observation.generation != inventory.generation {
-					observation.info, observation.agent, observation.resolved = resolve(observation.command, items)
+					lookup := observation.command
+					lookup.Name = observation.name
+					observation.info, observation.agent, observation.resolved = resolve(lookup, items)
 					observation.generation = inventory.generation
 					observations[pane] = observation
 				}
 				if !observation.resolved {
-					if watcher.agents[pane] != "" {
+					if observation.command.Mode == "env-run" {
+						warn(watcher.report(ctx, pane, observation.command, sandbox.Info{}, "env"))
+					} else if watcher.agents[pane] != "" {
 						warn(watcher.clear(ctx, pane))
 					}
 					continue
@@ -227,7 +231,7 @@ func (watcher *observer) report(ctx context.Context, pane string, command invoca
 	if watcher.bindings == nil {
 		watcher.bindings = make(map[string]binding)
 	}
-	if previous, exists := watcher.bindings[pane]; exists && previous.command == command && previous.id != info.ID {
+	if previous, exists := watcher.bindings[pane]; exists && previous.command == command && previous.id != "" && previous.id != info.ID {
 		return watcher.clear(ctx, pane)
 	}
 	watcher.bindings[pane] = binding{command: command, id: info.ID}

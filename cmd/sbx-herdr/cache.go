@@ -57,6 +57,7 @@ type paneObservation struct {
 	fingerprint [32]byte
 	command     invocation
 	matched     bool
+	name        string
 	generation  uint64
 	info        sandbox.Info
 	agent       string
@@ -70,7 +71,7 @@ func observeProcesses(previous paneObservation, processes []herdr.Process) (pane
 		return previous, false
 	}
 	command, matched := detect(processes)
-	return paneObservation{fingerprint: fingerprint, command: command, matched: matched}, true
+	return paneObservation{fingerprint: fingerprint, command: command, matched: matched, name: sandboxName(command)}, true
 }
 
 type reportState struct {
