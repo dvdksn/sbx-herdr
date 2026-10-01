@@ -1,0 +1,26 @@
+id = "dvdksn.sbx-herdr"
+name = "Docker Sandboxes"
+version = "0.1.0"
+min_herdr_version = "0.9.3"
+description = "Detect ordinary SBX attachments in local Herdr panes"
+platforms = ["linux", "macos"]
+
+[[build]]
+command = ["go", "build", "-o", "bin/sbx-herdr", "./cmd/sbx-herdr"]
+
+[[actions]]
+id = "refresh"
+title = "Refresh sandbox context"
+contexts = ["pane"]
+command = ["bin/sbx-herdr", "ensure"]
+
+[[startup]]
+command = ["bin/sbx-herdr", "ensure"]
+
+[[events]]
+on = "pane.created"
+command = ["bin/sbx-herdr", "ensure"]
+
+[[events]]
+on = "pane.focused"
+command = ["bin/sbx-herdr", "ensure"]
