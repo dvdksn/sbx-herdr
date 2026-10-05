@@ -1,17 +1,23 @@
 package main
 
 import (
+	"io"
+	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"syscall"
 
 	"github.com/dvdksn/sbx-herdr/internal/attachment"
 	"github.com/dvdksn/sbx-herdr/internal/herdr"
 	"github.com/dvdksn/sbx-herdr/internal/sandbox"
 )
 
+var envNamePattern = regexp.MustCompile(`(?m)^name:[ \t]*["']?([A-Za-z0-9][A-Za-z0-9_.-]*)["']?[ \t]*(?:#.*)?$`)
+
 type invocation struct {
-	PID                          int
-	Mode, Name, Agent, Workspace string
+	PID                                 int
+	Mode, Name, Agent, Workspace, Files string
 }
 
 func detect(processes []herdr.Process) (invocation, bool) {
@@ -120,13 +126,16 @@ func parseEnvRun(result invocation, args []string) (invocation, bool) {
 	}
 	result.Mode, result.Agent = "env-run", "env"
 	args = args[1:]
+	var paths []string
 	for len(args) > 0 {
 		arg := args[0]
 		args = args[1:]
 		if arg == "--" {
+			paths = append(paths, args...)
 			break
 		}
 		if !strings.HasPrefix(arg, "-") {
+			paths = append(paths, arg)
 			continue
 		}
 		flag, value, assigned := strings.Cut(arg, "=")
@@ -141,13 +150,54 @@ func parseEnvRun(result invocation, args []string) (invocation, bool) {
 				if len(args) == 0 {
 					return result, false
 				}
-				args = args[1:]
+				value, args = args[0], args[1:]
+			}
+			if flag == "--name" {
+				result.Name = value
 			}
 		default:
 			return result, false
 		}
 	}
+	result.Files = strings.Join(paths, "\x00")
 	return result, true
+}
+
+func sandboxName(command invocation) string {
+	if command.Mode != "env-run" || command.Name != "" || command.Workspace == "" {
+		return command.Name
+	}
+	paths := []string{"."}
+	if command.Files != "" {
+		paths = strings.Split(command.Files, "\x00")
+	}
+	name := ""
+	for _, path := range paths {
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(command.Workspace, path)
+		}
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			path = filepath.Join(path, "sbxenv.yaml")
+		}
+		file, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+		if err != nil {
+			continue
+		}
+		info, err := file.Stat()
+		if err != nil || !info.Mode().IsRegular() {
+			file.Close()
+			continue
+		}
+		data, err := io.ReadAll(io.LimitReader(file, 1<<20))
+		file.Close()
+		if err != nil {
+			continue
+		}
+		if match := envNamePattern.FindSubmatch(data); match != nil {
+			name = string(match[1])
+		}
+	}
+	return name
 }
 
 func label(command string) string {
@@ -165,7 +215,7 @@ func resolve(command invocation, inventory []sandbox.Info) (sandbox.Info, string
 			continue
 		}
 		matches := command.Name != "" && info.Name == command.Name
-		if command.Name == "" && command.Mode == "run" && info.Agent == command.Agent && command.Workspace != "" && info.Workspace != "" {
+		if command.Name == "" && command.Mode == "run" && attachment.Normalize(info.Agent) == attachment.Normalize(command.Agent) && command.Workspace != "" && info.Workspace != "" {
 			workspace, workspaceErr := filepath.EvalSymlinks(command.Workspace)
 			mounted, mountedErr := filepath.EvalSymlinks(info.Workspace)
 			matches = workspaceErr == nil && mountedErr == nil && workspace == mounted
@@ -176,7 +226,7 @@ func resolve(command invocation, inventory []sandbox.Info) (sandbox.Info, string
 		}
 	}
 	agent := command.Agent
-	if command.Mode == "run" {
+	if command.Mode == "run" || command.Mode == "env-run" {
 		agent = label(found.Agent)
 	}
 	return found, agent, count == 1

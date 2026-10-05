@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -46,12 +47,19 @@ func Path(token string) (string, error) {
 }
 
 func Agent(command string) string {
-	switch filepath.Base(command) {
+	switch name := Normalize(command); name {
 	case "claude", "codex", "opencode", "pi", "cursor", "copilot", "devin", "droid", "gemini", "kiro":
-		return filepath.Base(command)
+		return name
 	default:
 		return ""
 	}
+}
+
+func Normalize(reference string) string {
+	name := filepath.Base(reference)
+	name, _, _ = strings.Cut(name, "@")
+	name, _, _ = strings.Cut(name, ":")
+	return strings.TrimPrefix(name, "sbx-kit-")
 }
 
 func Write(state State) error {

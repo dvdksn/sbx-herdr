@@ -137,9 +137,9 @@ func (client Client) Classify(ctx context.Context, agent, screen string) (string
 
 func Classification(data []byte) (string, error) {
 	var result struct {
-		State   string  `json:"state"`
-		Matched *string `json:"matched_rule"`
-		Skip    bool    `json:"skip_state_update"`
+		State   string `json:"state"`
+		Matched any    `json:"matched_rule"`
+		Skip    bool   `json:"skip_state_update"`
 	}
 	if err := json.Unmarshal(data, &result); err != nil {
 		return "unknown", err
