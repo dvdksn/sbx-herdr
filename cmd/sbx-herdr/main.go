@@ -30,8 +30,12 @@ func run() error {
 	}
 	switch os.Args[1] {
 	case "--help":
-		fmt.Println("sbx-herdr is launched automatically by Herdr. Use sbx run or sbx exec, not this binary, to attach.")
+		fmt.Println("sbx-herdr runs Herdr plugin actions and observes local SBX attachments. Use the manage plugin action to manage sandbox machines; use sbx to create or attach.")
 		return nil
+	case "manage":
+		return registrationAction("manager")
+	case "manager":
+		return runManager()
 	case "ensure", "refresh":
 		return ensure()
 	case "observe":
@@ -47,7 +51,7 @@ func run() error {
 		defer cancel()
 		return observe(ctx)
 	default:
-		return fmt.Errorf("use sbx directly; this binary only runs the Herdr observer")
+		return fmt.Errorf("internal Herdr plugin helper; use the declared plugin actions or sbx directly")
 	}
 }
 
